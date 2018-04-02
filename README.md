@@ -1,6 +1,6 @@
 RNA-sequence
 =============
-This project is used for RNA seq research.
+This project is used for RNA seq research and skill training.
 
 ## Index:
 ### 1. [Draw a scattr plot for log2fc.R:](https://github.com/Wan-Yifei/RNA-sequence/blob/master/Draw%20a%20scatterplot%20for%20log2fc.R)
