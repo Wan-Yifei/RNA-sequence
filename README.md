@@ -11,3 +11,7 @@ This project is used for RNA seq research and skill training.
 + demo#2 (use abline to replace the smooth):
 
 ![img](https://raw.githubusercontent.com/Wan-Yifei/RNA-sequence/master/demo%20of%20scatterplot%20logfc%20%232.jpeg)
+
++ demo3 (change the color of diagonal):
+
+![img](https://raw.githubusercontent.com/Wan-Yifei/RNA-sequence/master/demo%233%20scatterplot%20of%20%20log2fc.jpeg)
