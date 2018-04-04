@@ -1,4 +1,5 @@
 # draw a scatter plot for log2 fold change
+# V1.0.3
 library("ggplot2")
 
 ## load raw data
@@ -19,7 +20,8 @@ judge <- sapply(log2fc, function(x , threshold = 1){ ## default threshold =1
 ggplot(data = data1, aes(x=Treatment.1_count, y=Mod.1_count) ) + 
   geom_point(aes(color=judge), alpha=1/2, size=0.8) + ## decide the color relying on 'judge'
   scale_color_manual(values=c("firebrick1", "grey", "forestgreen")) + 
-  geom_smooth(method="lm",se=FALSE) +  ## add trend line
+  #geom_smooth(method="lm",se=FALSE) +  ## add trend line
+  geom_abline(intercept = 0, slope = 1) ## this trend line is better
   ggtitle('Scatter plot for log2fc')
 
 
