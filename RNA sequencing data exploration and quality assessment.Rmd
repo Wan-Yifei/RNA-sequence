@@ -1,0 +1,51 @@
+---
+title: "RNA sequencing data exploration and quality assessment"
+author: "Yifei Wan"
+date: "Apirl/5/2018"
+output: html_document
+---
+
+## 1. 测序数据读入与整理
+
+```{r}
+rawdata <- read.csv2('LncRNA_all.txt', sep = '\t', row.names = 1) 
+```
+    在函数read.csv2中指定制表符tab为分隔符并设定源文件第一行内容为行名。源文件第一列内容默认成为列名（`header = true`）。
+
+接下来让我查看一下数据的基本结构：
+
+```{r}
+head(rawdata)
+```
+    可以清楚的从控制台返回的结果看出这是一个以lncRNA为行（row），以样本为列（column）的表格。列名略显凌乱，不方便之后的分析，让我们重新命名一下：
+
+```{r, warning = FALSE}
+conditions <- c(rep('control', 3), rep('treatment', 3)) ## 以实验条件作为列名
+cols <- paste(conditions, 1:3, sep = '_')               ## 为各组编号
+colnames(rawdata) <- cols                               ## 将新列名赋予原始表格
+colnames(rawdata)                                       ## 打印新列名到控制台
+```
+    
+## 2. 数据的初步探索
+    我们会利用`ggplot2`包对原始数据进行可视化的探索，以求对数据的分布的有一个初步认识。可视化探索的结果会影响我们对后续策略的选择。
+    载入`ggplot2`:
+```{r}
+library(ggplot2)
+```
+
+### 2.1 直方图显示单个样本分布
+    直方图是最简单的作图方式之一，可以非常直观的展示数据的分布。下面我们以`control_1`为例绘制直方图：
+```{r}
+ggplot(data = rawdata, aes(x = control_1)) + 
+  geom_histogram(fill = 'purple3', binwidth = 5000)
+```
+    直方图呈现出一种奇怪的结果：几乎所有数据都挤在0附近的一根bar上面，而且肉眼可见的bar只有这一根。这就说明绝大多数的的测序结果都是很小的数字，但是如果对水平坐标轴进行观察，我们可以发现坐标轴横跨了从0到150,000的巨大区间。这暗示我们有稀少种类的RNA有远高于其他RNA的表达水平。这也符合我们大部分RNA表达水平较低而小部分RNA表达水平极高的先验知识。
+    为了将种类少而表大量高的RNA也展示在直方图上，我们需要对数据整体进行转化（transformation），最常见的方式是取对数。但是因为数据中有0存在，所以为了避免出错需要对每一个数据点` + 1`。当然也可以加其他合理小量。
+    完成转化之后重新绘图：
+
+```{r}
+logdata <- log2(rawdata + 1) ## 对原始数据取对数
+ggplot(data = logdata, aes(x = control_1)) +
+  geom_histogram(fill = 'purple', binwidth = 0.7)
+```
+  新直方图清晰的揭示了测序结果的分布情况也证明了我们上文的推测：表达水平高的RNA种类很少，绝大多数RNA都处于较低的表达水平换言之数据点极其分散。结合前文`head`命令所显示的原始数据，我们可以知道测序结果会是一种方差极大的离散数据（都是整数），这与microarray的连续数据（有非整数）有本质差异，也决定了后续分析方法将会不同。并且巨大的方差（过离散：overdispersion）导致过去测序分析中常见的泊松分布逐渐被负二项分布取代（泊松分布的期望和方差均等于其参数lambda, 这导致方差大小受限与数据实际情况不符）。
