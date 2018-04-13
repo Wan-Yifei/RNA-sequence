@@ -46,6 +46,7 @@ ggplot(data = rawdata, aes(x = control_1)) +
 ```{r}
 logdata <- log2(rawdata + 1) ## 对原始数据取对数
 ggplot(data = logdata, aes(x = control_1)) +
+  ylab(expression(log[2](count + 1))) +
   geom_histogram(fill = 'purple', binwidth = 0.7)
 ```
   新直方图清晰的揭示了测序结果的分布情况也证明了我们上文的推测：表达水平高的RNA种类很少，绝大多数RNA都处于较低的表达水平换言之数据点极其分散。结合前文`head`命令所显示的原始数据，我们可以知道测序结果会是一种方差极大的离散数据（都是整数），这与microarray的连续数据（有非整数）有本质差异，也决定了后续分析方法将会不同。并且巨大的方差（过离散：overdispersion）导致过去测序分析中常见的泊松分布逐渐被负二项分布取代（泊松分布的期望和方差均等于其参数lambda, 这导致方差大小受限与数据实际情况不符）。
