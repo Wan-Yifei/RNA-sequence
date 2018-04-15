@@ -61,14 +61,13 @@ head(boxdata)
 ```
   可以看出数据被重构为两列，第一列是数据来源的组别，第二列是对应的拷贝数。接下来作出箱形图：
 ```{r}
-groups <- substr(boxdata$Count, 1, 7)                               ## 标记数据组别来源的标签
+groups <- substr(boxdata$Count, 1, 7)                               ## 标记数据组别来源的标签：treatment没用完整拼写
 ggplot(data = boxdata, aes(x = Count, y = value, fill = groups)) +
   geom_boxplot() +
   ylab(expression(log[2](count + 1))) +
   scale_fill_manual(values = c('steelblue3', 'hotpink1'))
 ```
-  箱形图中的方块囊括了从25%~75%的数据点，箱体中的黑线是平均值。显然各组的数据在75%之后都拖有长长的尾巴。这再次印证了上文基于直方图做出的结论：大量的低表达RNA需要被移除。同时我们可以看出同种处理条件下的箱体对的并不是很齐，比如`control_1`与`control_2`之间箱体有很明显的差异。这种差异可能是测序过程中出现的，而将数据归一化（Normalzation）可以一定程度上修复这种误差。
-  
+  箱形图中的方块囊括了从25%~75%的数据点，箱体中的黑线是平均值。显然各组的数据在75%之后都拖有长长的尾巴。这再次印证了上文基于直方图做出的结论：大量的低表达RNA需要被移除。同时我们可以看出同种处理条件下的箱体对的并不是很齐，比如`control_1`与`control_2`之间箱体有很明显的差异。这种差异可能是测序过程中出现的。如果原始数据有提供测序方法（如单端测序或双端测序）等额外信息就可以通过聚类等手段对误差出现原因进行估计。但是遗憾的是本数据并未提供此类数据。
 ### 2.3 密度图
   箱形图虽然给出了各组平均数的位置，但是毕竟只是算术平均数。如果数据存在多于一个众数，那么平均数就无法用来描述数据的集中趋势了。利用密度图我们可以更加详细观察各组数据的分布：
 ```{r}
@@ -80,4 +79,29 @@ ggplot(data = boxdata, aes(x = value, colour = Count, fill = Count)) +   ## 以�
   theme(legend.position = "top") +                                       ## 设置图注的位置
   xlab(expression(log[2](count + 1)))                                    ## 设置x轴标注
 ```
+  密度图清晰的显示出各个组都有两个峰值，但是较高的峰值出现在低表达区（接近于0）。所以我们可以期待在过滤低表达数据后数据将形成一个只有单一集中趋势的分布，这对后期的拟合与DE分析是有利的。另外，虽然在箱形图中统一处理条件下`control_1`与其他对照组有明显差异，但是从密度图来看这可能只是低表达数据引起的误导，几个对照组的数据分布可以较好的重叠在一起。
+### 2.4 MA图
+  MA-plot是一种展示样本间表达倍数差异的图像，因为数据都被取过对数所以被称为对数表达差异倍数（log2 fold change）。两样本间的对数表达差异倍数被称为M-value，而各个转录本表达平均值被称为A-value。其中M作为y值，A作为x值。以`control_1`与`treatment_1`为例，作图代码如下：
+```{r}
+M <- logdata$control_1 - logdata$treatment_1                        ## 计算对数表达差异倍数M-value
+A <- (logdata$control_1 + logdata$treatment_1)/2                    ## 计算表达平均值
+judge <- sapply(M, function(x , threshold = 1){                     ## 以±1为界根据表达上调或下调为表达差异分类为：up, down, none
+  if(x > threshold){x = 'up'
+  } else if (x < -threshold){x = 'down'
+  } else {x = 'none'}
+})
+
+MA = data.frame(A, M)
+ggplot(MA, aes(x = A, y = M)) +                                     
+  geom_point(aes(color=judge), size = 1.5, alpha = 1/5) +           ## 利用judge为数据点分类赋予颜色
+  geom_hline(aes(yintercept=0), color = "blue3") +                  ## 添加水平线
+  stat_smooth(se = FALSE, method = "loess", color = "red3")         ## 添加趋势线
+
+```
+  MA图中蓝色标明了上调的转录本，红色则是下调，在x轴附近的绿点是没有变化的转录本。当这只是一个粗略结果，还不能说具有统计差异。同时平均表达水平2.5以下的转录本呈射线状，非常整齐和对称，这暗示这些数据主要来自测序系统自身的噪音，应该过滤掉。所以我们后文将采用2.5作为阀值过滤低表达数据。
+  
+  
+  
+  
+  
   
