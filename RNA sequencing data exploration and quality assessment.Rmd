@@ -40,7 +40,7 @@ ggplot(data = rawdata, aes(x = control_1)) +
   geom_histogram(fill = 'purple3', binwidth = 5000)
 ```
   
-  直方图呈现出一种奇怪的结果：几乎所有数据都挤在0附近的一根bar上面，而且肉眼可见的bar只有这一根。这就说明绝大多数的的测序结果都是很小的数字。但是如果对水平坐标轴进行观察，我们可以发现坐标轴横跨了从0到150,000的巨大区间。这暗示我们有稀少种类的RNA有远高于其他RNA的表达水平。这也符合我们大部分RNA表达水平较低而小部分RNA表达水平极高的先验知识。
+  直方图呈现出一种奇怪的结果：几乎所有数据都挤在0附近的一根bar上面，而且肉眼可见的bar只有这一根。这就说明绝大多数的的测序结果都是很小的数字。但是如果对水平坐标轴进行观察，我们可以发现坐标轴横跨了从0到150,000的巨大区间。这暗示我们有稀少种类的RNA有远高于其他RNA的表达水平。这也符合我们大部分RNA表达水平较低而小部分RNA表达水平极高的假设（此假设是进行表达差异分析的基本假设）。
   为了将种类少而表大量高的RNA也展示在直方图上，我们需要对数据整体进行转化（transformation），最常见的方式是取对数。但是因为数据中有0存在，所以为了避免出错需要对每一个数据点` + 1`。当然也可以加其他合理小量。
     完成转化之后重新绘图：
 
@@ -85,10 +85,10 @@ ggplot(data = boxdata, aes(x = value, colour = Count, fill = Count)) +   ## 以�
   
   密度图清晰的显示出各个组都有两个峰值，但是较高的峰值出现在低表达区（接近于0）。所以我们可以期待在过滤低表达数据后数据将形成一个只有单一集中趋势的分布，这对后期的拟合与DE分析是有利的。另外，虽然在箱形图中统一处理条件下`control_1`与其他对照组有明显差异，但是从密度图来看这可能只是低表达数据引起的误导，几个对照组的数据分布可以较好的重叠在一起。
 ### 2.4 MA图
-  MA-plot是一种展示样本间表达倍数差异的图像，因为数据都被取过对数所以被称为对数表达差异倍数（log2 fold change）。两样本间的对数表达差异倍数被称为M-value，而各个转录本表达平均值被称为A-value。其中M作为y值，A作为x值。以`control_1`与`treatment_1`为例，作图代码如下：
+  MA-plot是一种展示样本间表达倍数差异的图像，因为数据都被取过对数所以被称为对数表达差异倍数（log2 fold change）。两样本间的对数表达差异倍数被称为M-value，而各个转录本表达平均值被称为A-value。其中M作为y值，A作为x值。以`control_2`与`treatment_1`为例，作图代码如下：
 ```{r}
-M <- logdata$control_1 - logdata$treatment_1                        ## 计算对数表达差异倍数M-value
-A <- (logdata$control_1 + logdata$treatment_1)/2                    ## 计算表达平均值
+M <- logdata$control_2 - logdata$treatment_1                        ## 计算对数表达差异倍数M-value
+A <- (logdata$control_2 + logdata$treatment_1)/2                    ## 计算表达平均值
 judge <- sapply(M, function(x , threshold = 1){                     ## 以±1为界根据表达上调或下调为表达差异分类为：up, down, none
   if(x > threshold){x = 'up'
   } else if (x < -threshold){x = 'down'
@@ -97,15 +97,25 @@ judge <- sapply(M, function(x , threshold = 1){                     ## 以±1为
 
 MA = data.frame(A, M)
 ggplot(MA, aes(x = A, y = M)) +                                     
-  geom_point(aes(color=judge), size = 1.5, alpha = 1/5) +           ## 利用judge为数据点分类赋予颜色
+  geom_point(aes(color=judge), size = 1.5, alpha = 1/5) +           ## 利用judge为数据点分类
   geom_hline(aes(yintercept=0), color = "blue3") +                  ## 添加水平线
-  stat_smooth(se = FALSE, method = "loess", color = "red3")         ## 添加趋势线
-
+  stat_smooth(se = FALSE, method = "loess", color = "red3") +       ## 添加趋势线（采用局部加权回归loess）
+  scale_color_manual(values=c("forestgreen", "grey", "firebrick1")) ## 根据分类为数据点配色
 ```
   
-  MA图中蓝色标明了上调的转录本，红色则是下调，在x轴附近的绿点是没有变化的转录本。这只是一个粗略结果，还不能说具有统计差异。同时平均表达水平2.5以下的转录本呈射线状，非常整齐和对称，这暗示这些数据主要来自测序系统自身的噪音，应该过滤掉。所以我们后文将采用2.5作为阀值过滤低表达数据。
+  MA图中蓝色标明了上调的转录本，红色则是下调，在x轴附近的绿点是没有变化的转录本。这只是一个粗略结果，还不能说具有统计差异。同时平均表达水平5以下的转录本呈射线状，非常整齐和对称，这暗示这些数据主要来自测序系统自身的噪音，应该过滤掉。所以我们后文将采用5作为阀值过滤低表达数据。另外，呈箭头状的图像主体（称为Fan-shape)应以x轴为对称轴近似对称，因为基于假设大部分的转录本都没有显著变化。添加的红色趋势线显示了实际的轴线，与x轴有一定偏移。这再次证明数据归一化是需要的。
+### 2.5 变化倍率散点图
+  用散点图来展示对数表达倍数是一种类似于MA图的方法，但是只需要计算M值不需要计算A值。我们将使用上图的数据直接绘制散点图，注意下图在添加趋势线时使用了与上图不同的函数，但是效果是相同的：
+```{r}
+ggplot(data = logdata, aes(x = treatment_1, y = control_2) ) + 
+  geom_point(aes(color=judge), alpha=1/2, size=0.8) + 
+  scale_color_manual(values=c("forestgreen", "grey", "firebrick1")) + 
+  geom_smooth(method = "loess",se = FALSE, colour = 'red3') +         ## 添加趋势线
+  geom_abline(intercept = 0, slope = 1, colour = 'blue')              ## 添加对角线
+ggtitle('Scatter plot for log2fc')                                    ## 添加图片标题
+```
   
-  
+  散点图以两组参与比较的数据分别作为两轴，被减数control为y,减数treatment为x。此图的判读方法与MA图一致。趋势线同样显示数据需要归一化。
   
   
   
