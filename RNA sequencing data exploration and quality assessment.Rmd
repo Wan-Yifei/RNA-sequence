@@ -8,13 +8,13 @@ output: html_document
 ## 1. 测序数据读入与整理
 
 ```{r}
-rawdata <- read.csv2('LncRNA_all.txt', sep = '\t', row.names = 1) 
+#rawdata <- read.csv2('LncRNA_all.txt', sep = '\t', row.names = 1) 
 library('pasilla')
-pascount <- system.file("extdata", "pasilla_gene_counts.tsv", package="pasilla", mustWork=TRUE)
-pasmeta <- system.file("extdata", "pasilla_sample_annotation.csv", package="pasilla", mustWork=TRUE)
-rawdata <- as.matrix(read.csv2(pascount,sep="\t",row.names="gene_id"))
+pascount <- system.file('extdata', 'pasilla_gene_counts.tsv', package='pasilla', mustWork=TRUE)
+pasmeta <- system.file('extdata', 'pasilla_sample_annotation.csv', package='pasilla', mustWork=TRUE)
+rawdata <- as.matrix(read.csv2(pascount,sep='\t',row.names='gene_id'))
 coldata <- read.csv2(pasmeta, row.names=1)
-coldata <- coldata[,c("condition","type")]
+coldata <- coldata[,c('condition','type')]
 ```
   使用`pasilla`包的内置测序数据作为本文的数据源。`rawdata`内为保存测序读数的数字矩阵。`coldata`中保存实验条件。在函数read.csv2中指定制表符tab为分隔符并指明行名。
 
