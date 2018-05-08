@@ -1,0 +1,42 @@
+---
+title: "RNAseq analysis with on DESeq2"
+author: "Yifei Wan"
+date: "May/6/2018"
+output: html_document
+---
+
+# RNAseq analysis with on DESeq2
+
+## Input data
+```{r}
+library('pasilla')
+pascount <- system.file('extdata', 'pasilla_gene_counts.tsv', package='pasilla', mustWork=TRUE)
+pasmeta <- system.file('extdata', 'pasilla_sample_annotation.csv', package='pasilla', mustWork=TRUE)
+rawdata <- as.matrix(read.csv2(pascount,sep='\t',row.names='gene_id'))
+coldata <- read.csv2(pasmeta, row.names=1, sep = ',')
+coldata <- coldata[,c('condition','type')]
+```
+The rawdata records the count of reads of each RNA. The coldata is the meta data which includes the experiment design and sequence method. 
+
+Let's examine the count data and coladata to ensure that they are what we want:
+```{r}
+head(rawdata)
+head(coldata)
+```
+The DESeq2 requires the columns of count matrix and the rows of coldata are in same order. Unfortunately, above output appears that the order of columns in our data is not consistant. We must rearrange it. Furthermore, the rownames of coldata include additional letters: "fb" which should be chopped off.
+
+```{r}
+rownames(coldata) <- sub('fb', '', rownames(coldata)) ## chop off the 'fb'
+all(rownames(coldata) %in% colnames(rawdata)) 
+all(colnames(rawdata) == rownames(coldata)) ## check the order of names
+rawdata <- rawdata[, rownames(coldata)]
+all(colnames(rawdata) == rownames(coldata)) ## double check the order
+```
+
+In DESeq2, all information should be stored as an object `DESeqDataSet`. It needs count matrix and coldata which we already have. Let's start to make a `DESeqDataSet`:
+```{r}
+library(DESeq2)
+dds <- DESeqDataSetFromMatrix(countData = rawdata, colData = coldata, design = ~condition)
+dds
+```
+The output profiles the  information of `DESeqDataSet` object. Our data has 14599 features (RNA types) and 7 groups.
