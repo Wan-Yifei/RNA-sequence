@@ -8,13 +8,20 @@ output: html_document
 # RNAseq analysis with on DESeq2
 
 ## Input data
++ Prepare data from matrix
+
 ```{r}
 library('pasilla')
 pascount <- system.file('extdata', 'pasilla_gene_counts.tsv', package='pasilla', mustWork=TRUE)
 pasmeta <- system.file('extdata', 'pasilla_sample_annotation.csv', package='pasilla', mustWork=TRUE)
 rawdata <- as.matrix(read.csv2(pascount,sep='\t',row.names='gene_id'))
 coldata <- read.csv2(pasmeta, row.names=1, sep = ',')
-coldata <- coldata[,c('condition','type')]
+#coldata <- coldata[,c('condition','type')] ## test code
+
+temprowname <- rownames(coldata)
+coldata <- data.frame(coldata$condition)
+colnames(coldata) <- 'condition'
+rownames(coldata) <- temprowname
 ```
 The rawdata records the count of reads of each RNA. The coldata is the meta data which includes the experiment design and sequence method. 
 
@@ -32,11 +39,86 @@ all(colnames(rawdata) == rownames(coldata)) ## check the order of names
 rawdata <- rawdata[, rownames(coldata)]
 all(colnames(rawdata) == rownames(coldata)) ## double check the order
 ```
+```{r}
+# not run (test code):
+# temprowname <- sub('fb', '', temprowname)
+# all(temprowname %in% colnames(rawdata))
+# all(colnames(rawdata) == temprowname) ## check the order of names
+# rownames(coldata) <- temprowname
+# rawdata <- rawdata[, rownames(coldata)]
+# all(colnames(rawdata) == rownames(coldata))
+```
+
 
 In DESeq2, all information should be stored as an object `DESeqDataSet`. It needs count matrix and coldata which we already have. Let's start to make a `DESeqDataSet`:
 ```{r}
 library(DESeq2)
-dds <- DESeqDataSetFromMatrix(countData = rawdata, colData = coldata, design = ~condition)
+dds <- DESeqDataSetFromMatrix(countData = rawdata, colData = coldata, design = ~ condition)
 dds
 ```
 The output profiles the  information of `DESeqDataSet` object. Our data has 14599 features (RNA types) and 7 groups.
+
++ Prepare data from HTSeq count
+
+We are able to input data from HTSeq count file also. The pathway (directory) of HTSeq file should be pointed to a variable. Then, the function DESeqDataSetFromHTSeqCount would be applied to extract data from HTSeq file. But just for the demonstration purposes, we stll use the pasilla package as an example.
+
+```{r}
+directory <- system.file("extdata", package="pasilla", mustWork=TRUE)
+sampleFiles <- grep("treated",list.files(directory),value=TRUE)
+sampleCondition <- sub("(.*treated).*","\\1",sampleFiles)
+sampleTable <- data.frame(sampleName = sampleFiles, fileName = sampleFiles, condition = sampleCondition)
+ddsHTSeq <- DESeqDataSetFromHTSeqCount(sampleTable = sampleTable, directory = directory, design= ~ condition)
+ddsHTSeq
+```
+
+## Pre-filter
+
+Pre-filter can remove the low count data from DESeqDataSet. There are two reasons to do so:
++ Reduce the memory size of DESeqDataSet;
++ increase the speed of transformation and testing functions.
+
+This is not a necessary step. Since the DESeq provides a more strict approch to filter low count data: independent filtering. But we can introduce the `HTSFilter` package which implements a filtering procedure for replicated transcriptome sequencing data based on a global Jaccard similarity index in order to identify genes with low, constant levels of expression across one or more experimental conditions. The independent filtering should be turned off while we use the `HTSFilter` to avoid the over-filtering. The best threshold would be shown on the image.
+
+```{r}
+library(HTSFilter)
+dds <- estimateSizeFactors(dds)
+dds <- estimateDispersions(dds)
+## The argument `s.len` indicates how many threshold should be tried. 
+filter <- HTSFilter(dds, s.len = 50, normalization = 'DESeq')$filter
+class(filter)
+filter
+head(counts(filter))
+head(counts(dds))
+```
+## Differential Expression analysis
+We can strat to analyze the DE based on filtered data. Do not forget to turn off the independent filter.
+```{r}
+filter <- DESeq(filter)
+de <- results(filter, independentFiltering = F, contrast=c("condition","treated","untreated"))
+de 
+```
+The `constract` specifies what comparison to extract from the object to build a results table. It's a vector with exactly three elements: the name of a factor in the design formula, the name of the numerator level for the fold change, and the name of the denominator level for the fold change.
+
+We can re-order the p-values:
+```{r}
+resOrdered <- de[order(de$pvalue),]
+summary(resOrdered)
+```
+How many RNA with p-values less than 0.1?
+```{r}
+sum(resOrdered$padj < 0.1, na.rm=TRUE)
+```
+
+## Plot the MA-plot
+```{r}
+plotMA(de, ylim=c(-2,2))
+resultsNames(filter)
+resLFC <- lfcShrink(filter, coef="condition_untreated_vs_treated", type="normal")
+plotMA(resLFC, ylim=c(-2,2))
+```
+
+The points which we are interested in can be located by:
+```{r}
+#idx <- identify(de$baseMean, de$log2FoldChange)
+#rownames(de)[idx]
+```
